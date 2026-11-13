@@ -14,15 +14,15 @@ The goal is a RAG system that answers questions about the AI Act and **cites the
 AI Act PDF (French, 144 pages)
         │
         ▼
-1. Ingestion        src/ingest.py   ✅
+1. Ingestion        src/ingest.py  
    cleaning + structure-aware chunking + automated tests
         │
         ▼
-2. Indexing         src/index.py    ✅
+2. Indexing         src/index.py    
    multilingual embeddings → Qdrant vector database
         │
         ▼
-3. Retrieval        src/search.py   ✅ (baseline)
+3. Retrieval        src/search.py  
    semantic top-k search
         │
         ▼
