@@ -32,6 +32,7 @@ SIGNATURE = re.compile(r"^Fait à Bruxelles", re.MULTILINE)
 
 # Une ligne qui commence par l'un de ces motifs ouvre un nouveau paragraphe
 DEBUT_PARAGRAPHE = re.compile(r"^(\d+\.\s|[a-z]\)\s|\d+\)\s|[ivx]+\)\s|—|–|\(\d+\))")
+DEFINITION = re.compile(r"^(\d+)\)\s+«\s*([^»]+?)\s*»", re.MULTILINE)
 
 
 def extraire_texte(pdf_path):
@@ -138,6 +139,22 @@ def construire_chunks(texte):
         })
 
     return chunks
+def decouper_definitions(article3):
+    """Article 3 : un chunk enfant par définition, relié à son article parent."""
+    enfants = []
+    for m, bloc in couper_par(article3["texte"], DEFINITION):
+        n, terme = m.group(1), m.group(2)
+        enfants.append({
+            "id": f"article-3-point-{n}",
+            "type": "definition",
+            "numero": f"3.{n}",
+            "titre": f"Définition : {terme}",
+            "chapitre": article3["chapitre"],
+            "parent": "article-3",
+            "texte": f"Article 3, point {n}) — définition de «{terme}»\n{bloc}",
+            "source": SOURCE,
+        })
+    return enfants
 
 
 def verifier(chunks):
@@ -166,6 +183,8 @@ def afficher_stats(chunks):
 if __name__ == "__main__":
     texte = nettoyer(extraire_texte(PDF_PATH))
     chunks = construire_chunks(texte)
+    article3 = next(c for c in chunks if c["id"] == "article-3")
+    chunks += decouper_definitions(article3)
 
     verifier(chunks)
     afficher_stats(chunks)
@@ -175,3 +194,4 @@ if __name__ == "__main__":
         for c in chunks:
             f.write(json.dumps(c, ensure_ascii=False) + "\n")
     print(f"\n{len(chunks)} chunks enregistrés dans {OUT_PATH}")
+
