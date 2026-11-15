@@ -1,6 +1,7 @@
 """
 Ingestion de l'AI Act : PDF -> chunks JSONL.
-Un chunk = un considérant, un article ou une annexe, avec ses métadonnées.
+Un chunk = un considérant, un article, une annexe, une définition ou un paragraphe,
+avec ses métadonnées.
 """
 import json
 import re
@@ -33,6 +34,8 @@ SIGNATURE = re.compile(r"^Fait à Bruxelles", re.MULTILINE)
 # Une ligne qui commence par l'un de ces motifs ouvre un nouveau paragraphe
 DEBUT_PARAGRAPHE = re.compile(r"^(\d+\.\s|[a-z]\)\s|\d+\)\s|[ivx]+\)\s|—|–|\(\d+\))")
 DEFINITION = re.compile(r"^(\d+)\)\s+«\s*([^»]+?)\s*»", re.MULTILINE)
+PARAGRAPHE = re.compile(r"^(\d+)\.\s", re.MULTILINE)
+SEUIL = 2000   # au-delà, e5-small tronque le texte
 
 
 def extraire_texte(pdf_path):
@@ -139,6 +142,8 @@ def construire_chunks(texte):
         })
 
     return chunks
+
+
 def decouper_definitions(article3):
     """Article 3 : un chunk enfant par définition, relié à son article parent."""
     enfants = []
@@ -157,34 +162,67 @@ def decouper_definitions(article3):
     return enfants
 
 
+def decouper_paragraphes(article):
+    """Article long : un chunk enfant par paragraphe numéroté, relié à son article parent."""
+    enfants = []
+    for m, bloc in couper_par(article["texte"], PARAGRAPHE):
+        p = m.group(1)
+        enfants.append({
+            "id": f"{article['id']}-par-{p}",
+            "type": "paragraphe",
+            "numero": f"{article['numero']}.{p}",
+            "titre": f"{article['titre']} (paragraphe {p})",
+            "chapitre": article["chapitre"],
+            "parent": article["id"],
+            "texte": f"Article {article['numero']} — {article['titre']}, paragraphe {p}\n{bloc}",
+            "source": SOURCE,
+        })
+    return enfants
+
+
 def verifier(chunks):
     """Tests automatiques : le découpage doit retrouver la structure officielle."""
     nb = Counter(c["type"] for c in chunks)
     assert nb["considerant"] == 180, f"{nb['considerant']} considérants au lieu de 180"
     assert nb["article"] == 113, f"{nb['article']} articles au lieu de 113"
     assert nb["annexe"] == 13, f"{nb['annexe']} annexes au lieu de 13"
+    assert nb["definition"] == 68, f"{nb['definition']} définitions au lieu de 68"
 
     numeros = [int(c["numero"]) for c in chunks if c["type"] == "article"]
     assert numeros == list(range(1, 114)), "Numérotation des articles incorrecte"
+
+    # Chaque enfant doit pointer vers un parent qui existe
+    ids = {c["id"] for c in chunks}
+    orphelins = [c["id"] for c in chunks if "parent" in c and c["parent"] not in ids]
+    assert not orphelins, f"Chunks sans parent : {orphelins[:5]}"
+
     print("✅ Tous les tests passent :", dict(nb))
 
 
 def afficher_stats(chunks):
-    for t in ("considerant", "article", "annexe"):
+    for t in ("considerant", "article", "annexe", "definition", "paragraphe"):
         longueurs = [len(c["texte"]) for c in chunks if c["type"] == t]
         print(f"{t:12s} : min={min(longueurs):6d}  max={max(longueurs):6d}  "
               f"moyenne={sum(longueurs) // len(longueurs):6d} caractères")
 
-    print("\nLes 3 chunks les plus longs :")
-    for c in sorted(chunks, key=lambda c: len(c["texte"]), reverse=True)[:3]:
-        print(f"  {c['id']:15s} {len(c['texte']):6d} caractères — {c['titre'][:60]}")
+    print("\nLes 5 chunks enfants les plus longs :")
+    enfants = [c for c in chunks if "parent" in c]
+    for c in sorted(enfants, key=lambda c: len(c["texte"]), reverse=True)[:5]:
+        print(f"  {c['id']:22s} {len(c['texte']):6d} caractères — {c['titre'][:50]}")
 
 
 if __name__ == "__main__":
     texte = nettoyer(extraire_texte(PDF_PATH))
     chunks = construire_chunks(texte)
+
     article3 = next(c for c in chunks if c["id"] == "article-3")
     chunks += decouper_definitions(article3)
+
+    longs = [c for c in chunks
+             if c["type"] == "article" and c["id"] != "article-3" and len(c["texte"]) > SEUIL]
+    for article in longs:
+        chunks += decouper_paragraphes(article)
+    print(f"{len(longs)} articles longs découpés en paragraphes")
 
     verifier(chunks)
     afficher_stats(chunks)
@@ -194,4 +232,3 @@ if __name__ == "__main__":
         for c in chunks:
             f.write(json.dumps(c, ensure_ascii=False) + "\n")
     print(f"\n{len(chunks)} chunks enregistrés dans {OUT_PATH}")
-
