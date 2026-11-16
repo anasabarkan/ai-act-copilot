@@ -1,0 +1,10 @@
+{"question": "Qu'est-ce qu'un déployeur ?", "attendu": "article-3-point-4"}
+{"question": "Quelles pratiques d'IA sont interdites ?", "attendu": "article-5"}
+{"question": "Quelles sont les amendes en cas de non-respect du règlement ?", "attendu": "article-99"}
+{"question": "Un chatbot doit-il dire à l'utilisateur qu'il parle à une IA ?", "attendu": "article-50"}
+{"question": "Quelles sont les obligations des déployeurs de systèmes d'IA à haut risque ?", "attendu": "article-26"}
+{"question": "Est-ce que ce règlement s'applique à une entreprise marocaine qui vend son IA en Europe ?", "attendu": "article-2"}
+{"question": "Quelles conditions doivent respecter les données qui servent à entraîner mon IA ?", "attendu": "article-10"}
+{"question": "Est-ce qu'un humain doit pouvoir surveiller et arrêter les décisions de mon IA ?", "attendu": "article-14"}
+{"question": "Une startup peut-elle tester son IA avec l'accompagnement des autorités avant de la lancer ?", "attendu": "article-57"}
+{"question": "Que dois-je faire si mon IA provoque un accident grave ?", "attendu": "article-73"}
